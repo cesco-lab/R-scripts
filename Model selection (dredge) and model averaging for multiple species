@@ -1,0 +1,89 @@
+
+# save a list of species (all species of the dataset)
+
+sp <- levels(data$sp)
+
+
+#save a list of species (and exclude some species)
+
+sp <- levels(data$sp)[!levels(data$sp) %in% c("Sp1",
+                                                    "Sp2",
+                                                    "Sp3")]
+
+library(MuMIn)
+library(lme4)
+options(na.action = "na.fail")
+
+# boost model running speed (for multiple-core cpu, here I use 6 cores, for a cpu that has 8 cores (then i can work in the meanwhile))
+# your dataset is called "data", the rest of the code you don't have to change (except the number of cores))
+# make sure your pc does not burn
+
+library(parallel)
+clusterType <- if(length(find.package("snow", quiet = TRUE))) "SOCK" else "PSOCK" 
+clust <- try(makeCluster(getOption("cl.cores", 6), type = clusterType))
+clusterEvalQ(clust, library(lme4))
+clusterExport(clust, "data")
+
+
+# save a subset of variable combinations (here, always include the linear term when there is a quadratic effect,
+# always include main effects when there is an interaction,
+# always exclude the quadratic effect when the main effect is in interaction)
+# Here variables are scaled (necessary for model averaging) with the scale function (you can also scale the parameter estimates afterward, possible with the m.avg function)
+
+msubset <- expression(dc(scale(Weekly.temperature), `I(scale(Weekly.temperature)^2)`) &
+                      dc(scale(Weekly.temperature), `scale(Weekly.temperature):scale(Weekly.precipitation)`) &
+                      dc(scale(Weekly.precipitation), `scale(Weekly.temperature):scale(Weekly.precipitation)`) &
+                      !(`I(scale(Weekly.temperature)^2)` && `scale(Weekly.temperature):scale(Weekly.precipitation)`))
+                      
+                      
+#run the model selection process (function dredge of the MuMIn package)
+# Here I assume a negative binomial distribution of my count data
+# Here models are ranked on the basis of AICc
+# I also force the inclusion of my 2 adjustment variables that are in fixed effect (don't worry about random effects, they will always be included)
+# The loop includes the global model, the dredge, the model averaging and the saving of the dredge and of the model averaging.
+
+for(i in sp){
+  cat(paste("---- ", Sys.time(), "Fitting global model for", i, "----", "go have a coffee\n"))
+  m1 <- glmer.nb(count ~  scale(Weekly.temperature) + I(scale(Weekly.temperature)^2) + 
+                   scale(Weekly.precipitation) + 
+                   scale(Weekly.temperature):scale(Weekly.precipitation) +
+                   site + sampling.unit +
+                   (1|observer) + (1|year),
+                 data = data[data$sp == i,])
+  
+  cat(paste("---- ", Sys.time(), "Engaging dredge", "----", "zzzzzzzzzzz\n"))
+  dredge.glmer <- dredge(m1, fixed = c("site", "sampling.unit"), subset = msubset, cluster = clust,
+                                  beta = F, evaluate = T, rank = "AICc")
+  save(dredge.glmer, file = paste0("D:/your.directory/dredge.glmer.", i))
+  
+  
+# run model averaging (if relevant), including the 95% "best model set"
+
+  if(dredge.glmer[1,"weight"] + dredge.glmer[2,"weight"] <= 0.95) {
+    m.avg.glmer <- model.avg(dredge.glmer, cumsum(weight) <= .95)
+    save(m.avg.glmer, file = paste0("D:/your.directory/m.avg.glmer.", i))
+  }
+  cat(paste("---- ", Sys.time(), "Next tune Mr. DJ\n"))
+}
+      
+      
+# If for some reason you want a delta = 2 for your "best model set"
+
+for(i in sp){
+  load(paste0("D:/your.directory/dredge.glmer.", i))
+    m.avg.glmer <- model.avg(dredge.glmer, subset = delta <= 2)
+    save(m.avg.glmer, file = paste0("D:/your.directory/m.avg.glmer.delta2.", i))
+}
+
+
+# check your results
+
+for(i in sp){
+  load(paste0("D:/your.directory/m.avg.glmer.delta2.", i))
+  print(i)
+# print(m.avg.glmer$importance)
+print(summary(m.avg.glmer))
+}
+
+                                                    
+                                                    
