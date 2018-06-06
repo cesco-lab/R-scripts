@@ -2,6 +2,10 @@
 
 # Method from 
 # Moussus, J., Jiguet, F., Clavel, J., & Julliard, R. (2009). A method to estimate phenological variation using data from large‐scale abundance monitoring programmes. Bird Study, 56(2), 198–212. doi:10.1080/00063650902792064
+# Basicly, you merge 2 years of data (one with the highest number of data, and one want to test). For the tested year, you shift the date by a range of possible shifts (eg, -20 to +20). You can assess which shift allows to best fit your reference year on the basis of AIC.
+# I enhanced it in 2 aspects:
+# 1. I allowed to find a reference year specific to each species (because the reference year must be the year with the highest amount of data, and this year can change between species)
+# 2. I coded it for productivity (the proportion of juveniles relative to adults) instead of using abundances (because I believe that the proportion of juveniles better represents the starting of the breeding period (e.g., for resident bird species)
 
 load(abunance or productivity data) # I call it 'db' here.
 library(mgcv)
