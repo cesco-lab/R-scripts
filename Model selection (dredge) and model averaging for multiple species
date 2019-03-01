@@ -15,7 +15,7 @@ library(lme4)
 options(na.action = "na.fail")
 
 # boost model running speed (for multiple-core cpu, here I use 6 cores, for a cpu that has 8 cores (then i can work in the meanwhile))
-# your dataset is called "data", the rest of the code you don't have to change (except the number of cores))
+# your dataset is called "data", you don't need to change the rest of the code (except for the number of cores))
 # make sure your pc does not burn
 
 library(parallel)
@@ -52,7 +52,7 @@ for(i in sp){
                  data = data[data$sp == i,])
   
   cat(paste("---- ", Sys.time(), "Engaging dredge", "----", "zzzzzzzzzzz\n"))
-  dredge.glmer <- dredge(m1, fixed = c("site", "sampling.unit"), subset = msubset, cluster = clust,
+  dredge.glmer <- pdredge(m1, fixed = c("site", "sampling.unit"), subset = msubset, cluster = clust,
                                   beta = F, evaluate = T, rank = "AICc")
   save(dredge.glmer, file = paste0("D:/your.directory/dredge.glmer.", i))
   
