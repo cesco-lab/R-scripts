@@ -6,7 +6,7 @@
 
 ######################## %%%%%%%%%%%%%%% ##########################
 
-# In spatial analysis, special software has been developed to ease the use of spatial data as GRASS, QGis or ArcGis
+# In spatial analysis, special softwares have been developped to ease the use of spatial data as GRASS, QGis or ArcGis
 # Those softwares are really good and allow very good computations on spatial files
 # sometimes more quickly and easily than in R
 # However, the fact that inside those software we can use functions already designed, make us wondering about what exact computation is behind
