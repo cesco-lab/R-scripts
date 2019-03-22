@@ -491,6 +491,7 @@ plot(p,add=T)
 # Select only the points inside a Loire's department
 library(rgeos)
 u <- gIntersects(p,p.Loire,byid=T)
+  ## [AG] there might be a way with sf::Intersect to select and group in once without having to do the loop
 u
 class(u)
   # u provides a matrix of T/F. it is true when the point j (column) is inside a department i (row)
@@ -737,6 +738,7 @@ test
 # with rgeos library
 ?gDistance
 val <- gDistance(pointloire,byid=T)
+    ## [AG] I also think there might be a better way than gDistance and/or knn2nb (see below) to compute those lines of nearest distance
 val
 summary(val)
 
