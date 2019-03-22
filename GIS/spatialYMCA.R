@@ -967,10 +967,10 @@ clc.Loire2.ras <- mask(clc.Loire2.ras,occ.ras)
 
 # let's create a data frame for analysis
 Occurence <- getValues(occ.ras) 
-Dist.Foret <- getValues(distances.ras)
+Dist.Foret <- getValues(distah.vrai.ras)
 Prop.Foret <- getValues(ForestCover_prop.ras2)
 Landuse <- getValues(clc.Loire2.ras)
-montableau <- cbind(Occurence,Distances,Prop.Foret,Landuse)
+montableau <- cbind(Occurence,Dist.Foret,Prop.Foret,Landuse)
 head(montableau)
 nrow(montableau)
 class(montableau)
@@ -1220,7 +1220,7 @@ projection(pland_foret.r) <- CRS(proj4string(bufloire))
 # if we want to include this variable into our analysis data frame
 
 Occurence <- getValues(occ.ras) 
-Dist.Foret <- getValues(distances.ras)
+Dist.Foret <- getValues(distah.vrai.ras)
 Prop.Foret <- getValues(ForestCover_prop.ras2)
 Landuse <- getValues(clc.Loire2.ras)
 
@@ -1235,7 +1235,7 @@ ncell(occ.ras)
 
 Patch.Dens <- getValues(pland_foret.r.ras)
 
-montableau <- cbind(Occurence,Distances,Prop.Foret,Landuse,Patch.Dens)
+montableau <- cbind(Occurence,Dist.Foret,Prop.Foret,Landuse,Patch.Dens)
 head(montableau)
 nrow(montableau)
 montableau <- data.frame(montableau)
