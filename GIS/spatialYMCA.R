@@ -54,13 +54,14 @@ library(sf) # Linking to GEOS 3.6.1, GDAL 2.2.3, proj.4 4.9.3
 # that actually provide OpenStreet Map data (but from the national cadastre)
 #https://www.data.gouv.fr/fr/datasets/contours-des-departements-francais-issus-d-openstreetmap/
 
-setwd("mypath")
+# setwd("mypath")
 # replace here your path for the file
 #setwd("C:/Users/cazam/Desktop/YMCA sp")
+## MR : I changed the way to open files so it is more automatic
+## but you ned to create a folder "data" in your wd and put all the data in it
 
 # open with rgdal 
-departement <- readOGR("./departements-20180101.shp",
-                       layer="departements-20180101")
+departement <- readOGR(paste0(getwd(),"/data/departements-20180101.shp"),layer="departements-20180101")
 
 departement
   # we have several information here
@@ -69,7 +70,7 @@ class(departement)
 
 
 # open with sf (always begging with st_)
-depart_sf <- st_read("./departements-20180101.shp")
+depart_sf <- st_read(paste0(getwd(),"/data/departements-20180101.shp"))
 # replace here your path for the file
 
   # what we have in depart_sf is all the information
@@ -89,7 +90,7 @@ depart_sf
 
 # download CLC12 from https://land.copernicus.eu/pan-european/corine-land-cover/clc-2012?tab=download in the raster type
 library(raster)
-clc <- raster("./g250_clc12_V18_5.tif")
+clc <- raster(paste0(getwd(),"/data/g250_clc12_V18_5.tif"))
 clc
   # several information
 
@@ -1360,3 +1361,148 @@ plot(ForestCover_prop.ras2)
 # possibility of creating interactive maps as well
 # and to open GRASS in R (https://cran.r-project.org/web/packages/rgrass7/index.html)
 
+
+#### %%%%%%%%%%%%%%  ####
+
+
+#### J - SOME POST-YMCA ADDITIONS by MR (I have no idea how to center the text btw) ####
+
+
+#### %%%%%%%%%%%%%%  ####
+
+### 1) load all the packages/functions/data needed
+# packages
+library(raster)
+library(rworldmap)
+library(ggplot2)
+library(plyr)
+library(rgdal)
+library(maptools)
+library(RColorBrewer)
+library(rasterVis)
+
+# function to make multiple plots in one plot command
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
+  
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+  
+  numPlots = length(plots)
+  
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                     ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+  
+  if (numPlots==1) {
+    print(plots[[1]])
+    
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+    
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+      
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+
+# countries shapefile that we transform to plot with ggplot later
+countries <- shapefile(paste0(getwd(), "/data/ne_50m_admin_0_countries.shp"))
+countries@data$id <- rownames(countries@data)
+countries.points <- fortify(model = countries, region = "id")
+countries.df <- join(countries.points, countries@data, by = "id")
+
+# distribution of Carnivora species (shapefile downloaded from the IUCN website)
+shp_iucn_car <- shapefile(paste0(getwd(), "/data/CARNIVORA.shp")) # can take some time to load (1 min)
+
+
+### 2) make distribution maps for species
+# select the first 10 Carnivora species in shp_iucn_car
+carsp <- unique(shp_iucn_car@data$binomial)
+top10 <- head(carsp, n = 10)
+
+# make maps for these top10 species: can take some time as well (2-3 min)!
+list_maps <- list()
+for (i in 1:length(top10))
+{
+  species <- top10[i]
+  shp <- shp_iucn_car[shp_iucn_car@data$binomial == species ,]
+  shp@data$id <- rownames(shp@data)
+  shp.points <- fortify(model = shp, region = "id")
+  shp.df <- join(shp.points, shp@data, by = "id")
+  map <- ggplot(shp.df, aes(long,lat, group = group)) + 
+    geom_path(data = countries.df, mapping = aes(x = long, y = lat, group = group),
+              inherit.aes = FALSE, col = grey(.5), size = 0.5) +
+    geom_polygon(aes(fill = legend, col = legend), alpha = 0.5) +
+    coord_equal() +
+    ggtitle(label = species) +
+    theme(plot.title = element_text(face = "bold.italic"), legend.position = "none")
+  print(map)
+  list_maps[[i]] <- map
+}
+
+# colors correspond to levels of the variable legend (shp_iucn_car@legend)
+
+# now plot all the maps in one, can take some time (3 min)
+multiplot(plotlist = list_maps, cols = 2) 
+ 
+
+### 3) make a map of species richness
+# empty reference raster
+ref_raster <- raster(ext = extent(c(-180, 180, -90, 90)), res = 1,
+                     crs = "+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
+
+# rasterize the shape for each species and stock it in a rasterstack
+# it can take some time (2 min) as they are more than 200 species
+species_rasters <- stack()
+
+for (i in 1:length(carsp))
+{
+  species <- carsp[i]
+  shp <- shp_iucn_car[shp_iucn_car@data$binomial == species ,]
+  ras <- rasterize(shp, field = "presence", ref_raster, FUN = "identity")
+  species_rasters <- stack(species_rasters, ras)
+}
+
+nlayers(species_rasters)
+names(species_rasters) <- carsp
+
+# calculate total richness
+richness <- stackApply(species_rasters, indices = nlayers(species_rasters), fun = sum)
+
+# plot a map of species richness using geom_raster (can still be improved)
+richness_gg <- gplot(richness) +
+  geom_polygon(data = countries.df, mapping = aes(x = long, y = lat, group = group),
+               inherit.aes = FALSE, col = NA, fill = "black", size = 0.5) +
+  geom_raster(aes(fill = value), alpha = 0.9) +
+  scale_fill_gradient2(low = "#fff7ec",
+                       mid = "#fc4e2a",
+                       high = "#800026",
+                       midpoint = 35,
+                       space = "Lab",
+                       na.value = "grey87",
+                       guide = "colourbar",
+                       breaks = c(0,10, 20, 30, 40, 50),
+                       name = "Nb of species") +
+  xlab("Longitude") + ylab("Latitude") +
+  coord_equal() +
+  ggtitle(label = "Carnivora species richness") +
+  theme_bw() +
+  theme(plot.margin = margin(0, 0.05, 0, 0.05, "cm"),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 8),
+        legend.title = element_text(size = 8, face = "bold"))
+
+richness_gg
